@@ -2,9 +2,13 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useGpsTracking } from "@/hooks/useGpsTracking";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { MapPin, Navigation } from "lucide-react";
+
+const KakaoMap = dynamic(() => import("@/components/map/KakaoMap"), { ssr: false });
 
 interface ActiveDeliveryClientProps {
   routeId: string;
@@ -30,12 +34,13 @@ export default function ActiveDeliveryClient({
   const [remaining, setRemaining] = useState(initialRemaining);
   const [lastEventType, setLastEventType] = useState(lastEvent?.type ?? "");
   const [loading, setLoading] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   const isActive = status === "active";
 
-  useGpsTracking({ routeId, enabled: isActive });
+  const { position } = useGpsTracking({ routeId, enabled: isActive });
   useWakeLock(isActive);
 
   const addEvent = useCallback(
@@ -65,7 +70,6 @@ export default function ActiveDeliveryClient({
   }
 
   async function handleUndo() {
-    // 연속 2회 undo 방지
     if (lastEventType === "undo") return;
     await addEvent(1, "undo");
   }
@@ -89,23 +93,72 @@ export default function ActiveDeliveryClient({
     router.push(`/distributor/complete?route=${routeId}`);
   }
 
+  const mapCenter = position
+    ? { lat: position.lat, lng: position.lng }
+    : { lat: 37.5665, lng: 126.978 };
+
+  const mapMarkers = position
+    ? [{ lat: position.lat, lng: position.lng, label: "현재 위치" }]
+    : [];
+
   return (
     <main className="min-h-screen bg-slate-900 flex flex-col">
-      {/* 상단 상태 표시 */}
+      {/* 상단 헤더 */}
       <header className="px-4 py-4 flex items-center justify-between bg-slate-800">
         <div>
           <p className="text-slate-400 text-xs">배포 중</p>
           <h1 className="text-white font-bold">{distributorName}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${isActive ? "bg-green-400 animate-pulse" : "bg-yellow-400"}`}
-          />
-          <span className="text-slate-300 text-sm">
-            {isActive ? "추적 중" : "일시정지"}
-          </span>
+        <div className="flex items-center gap-3">
+          {/* 지도 토글 버튼 */}
+          <button
+            onClick={() => setShowMap((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+              showMap
+                ? "bg-blue-600 text-white"
+                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+            }`}
+          >
+            <MapPin size={13} />
+            지도
+          </button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${isActive ? "bg-green-400 animate-pulse" : "bg-yellow-400"}`}
+            />
+            <span className="text-slate-300 text-sm">
+              {isActive ? "추적 중" : "일시정지"}
+            </span>
+          </div>
         </div>
       </header>
+
+      {/* 지도 패널 */}
+      {showMap && (
+        <div className="relative">
+          <KakaoMap
+            center={mapCenter}
+            markers={mapMarkers}
+            className="w-full h-52"
+            zoom={16}
+          />
+          {/* GPS 상태 오버레이 */}
+          <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <Navigation
+              size={12}
+              className={position ? "text-green-400" : "text-slate-400"}
+            />
+            {position ? (
+              <span className="text-white text-xs">
+                {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                <span className="text-slate-400 ml-1">±{Math.round(position.accuracy)}m</span>
+              </span>
+            ) : (
+              <span className="text-slate-400 text-xs">위치 확인 중...</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 카운터 */}
       <div className="px-4 py-6 grid grid-cols-2 gap-4">
