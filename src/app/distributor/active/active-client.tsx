@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useGpsTracking } from "@/hooks/useGpsTracking";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin, Navigation, LocateFixed } from "lucide-react";
 
 const KakaoMap = dynamic(() => import("@/components/map/KakaoMap"), { ssr: false });
 
@@ -54,10 +54,8 @@ export default function ActiveDeliveryClient({
       if (!error) {
         if (type === "delivered") {
           setDelivered((d) => d + count);
-          setRemaining((r) => r - count);
         } else {
-          setDelivered((d) => d - count);
-          setRemaining((r) => r + count);
+          setDelivered((d) => Math.max(0, d - count));
         }
         setLastEventType(type);
       }
@@ -132,6 +130,27 @@ export default function ActiveDeliveryClient({
           </div>
         </div>
       </header>
+
+      {/* GPS 위치 바 */}
+      <div className="px-4 py-2 bg-slate-800/60 border-b border-slate-700/50 flex items-center gap-2">
+        <LocateFixed
+          size={13}
+          className={position ? "text-green-400 flex-shrink-0" : "text-slate-500 flex-shrink-0"}
+        />
+        {position ? (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-green-400 text-xs font-mono">
+              {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+            </span>
+            <span className="text-slate-500 text-xs flex-shrink-0">±{Math.round(position.accuracy)}m</span>
+            {/* TODO: 가까운 배포지 표시 — e.g. "1. 스마트업타워 (120m)" */}
+          </div>
+        ) : (
+          <span className="text-slate-500 text-xs">
+            {isActive ? "GPS 위치 확인 중..." : "추적 일시정지됨"}
+          </span>
+        )}
+      </div>
 
       {/* 지도 패널 */}
       {showMap && (
