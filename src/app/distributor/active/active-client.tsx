@@ -210,13 +210,16 @@ export default function ActiveDeliveryClient({
       </div>
 
       <div className="px-4 flex-1 flex flex-col gap-4">
-        {/* 되돌리기 */}
+        {/* 0으로 초기화 */}
         <button
-          onClick={handleUndo}
-          disabled={!isActive || lastEventType === "undo" || delivered === 0}
+          onClick={async () => {
+            if (delivered === 0) return;
+            await addEvent(delivered, "undo");
+          }}
+          disabled={!isActive || delivered === 0}
           className="w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-300 font-medium py-4 rounded-xl text-sm transition-colors"
         >
-          되돌리기 (-1){lastEventType === "undo" ? " — 연속 2회 불가" : ""}
+          0으로 초기화
         </button>
 
         {/* 일시정지 / 재개 */}
