@@ -1,17 +1,21 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import {
   Activity,
   Users,
   Package,
   CheckCircle2,
-  Clock,
   MapPin,
   TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import WeatherWidget from "@/components/admin/WeatherWidget";
+
+const KakaoMap = dynamic(() => import("@/components/map/KakaoMap"), { ssr: false });
 
 export type RouteRecord = {
   id: string;
@@ -30,39 +34,20 @@ interface AdminDashboardClientProps {
   totalDistributors: number;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  active:  { label: "배포 중",   color: "text-emerald-400 bg-emerald-400/10 ring-emerald-400/20", dot: "bg-emerald-400 animate-pulse" },
-  paused:  { label: "일시정지", color: "text-amber-400 bg-amber-400/10 ring-amber-400/20",    dot: "bg-amber-400" },
-  done:    { label: "완료",     color: "text-slate-400 bg-slate-400/10 ring-slate-400/20",    dot: "bg-slate-400" },
-  pending: { label: "대기",     color: "text-slate-500 bg-slate-500/10 ring-slate-500/20",    dot: "bg-slate-600" },
+const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string; mapColor: string }> = {
+  active:  { label: "배포 중",   color: "text-emerald-400 bg-emerald-400/10 ring-emerald-400/20", dot: "bg-emerald-400 animate-pulse", mapColor: "#34d399" },
+  paused:  { label: "일시정지", color: "text-amber-400 bg-amber-400/10 ring-amber-400/20",    dot: "bg-amber-400",                  mapColor: "#fbbf24" },
+  done:    { label: "완료",     color: "text-slate-400 bg-slate-400/10 ring-slate-400/20",    dot: "bg-slate-400",                  mapColor: "#64748b" },
+  pending: { label: "대기",     color: "text-slate-500 bg-slate-500/10 ring-slate-500/20",    dot: "bg-slate-600",                  mapColor: "#475569" },
 };
 
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ring-1 ${cfg.color}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ring-1 ${cfg.color}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
-  );
-}
-
-function StatCard({
-  icon: Icon, label, value, sub, accent,
-}: {
-  icon: React.ElementType; label: string; value: number | string; sub?: string; accent: string;
-}) {
-  return (
-    <div className="bg-[#161b27] rounded-2xl p-5 flex items-start justify-between border border-white/5 hover:border-white/10 transition-colors">
-      <div>
-        <p className="text-slate-400 text-sm font-medium mb-2">{label}</p>
-        <p className={`text-3xl font-bold ${accent}`}>{value}</p>
-        {sub && <p className="text-slate-500 text-xs mt-1">{sub}</p>}
-      </div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent.replace("text-", "bg-").replace("-400", "-400/15")}`}>
-        <Icon size={18} className={accent} />
-      </div>
-    </div>
   );
 }
 
@@ -74,6 +59,7 @@ export default function AdminDashboardClient({
 }: AdminDashboardClientProps) {
   const [routes, setRoutes] = useState(initialRoutes);
   const [countByRoute, setCountByRoute] = useState(initialCount);
+  const [showPanel, setShowPanel] = useState(true);
   const supabase = createClient();
 
   const refreshCount = useCallback(
@@ -109,122 +95,122 @@ export default function AdminDashboardClient({
   const activeCount = routes.filter((r) => r.status === "active").length;
   const doneCount = routes.filter((r) => r.status === "done").length;
 
-  const today = new Date().toLocaleDateString("ko-KR", {
-    year: "numeric", month: "long", day: "numeric", weekday: "short",
-  });
+  // 맵 마커 (GPS 좌표 있는 배포자만)
+  const markers = routes
+    .filter((r) => r.last_lat && r.last_lng)
+    .map((r) => ({
+      lat: r.last_lat!,
+      lng: r.last_lng!,
+      label: r.distributors?.name ?? "",
+      color: STATUS_CONFIG[r.status]?.mapColor ?? "#3b82f6",
+    }));
+
+  const mapCenter = markers.length > 0
+    ? { lat: markers[0].lat, lng: markers[0].lng }
+    : { lat: 35.2279, lng: 128.6811 }; // 창원시
 
   return (
-    <div className="p-5 lg:p-7 pb-24 lg:pb-7">
-      {/* 페이지 헤더 */}
-      <div className="mb-7">
-        <h1 className="text-white font-bold text-2xl mb-1">대시보드</h1>
-        <p className="text-slate-500 text-sm flex items-center gap-1.5">
-          <Clock size={13} />
-          {today}
-        </p>
-      </div>
+    <div className="relative" style={{ height: "100vh" }}>
+      {/* 풀스크린 카카오맵 */}
+      <KakaoMap
+        center={mapCenter}
+        markers={markers}
+        className="absolute inset-0 w-full h-full"
+        zoom={12}
+      />
 
-      {/* 주간 날씨 */}
-      <WeatherWidget />
-
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-        <StatCard icon={Activity}  label="배포 중"     value={activeCount}       sub="실시간"            accent="text-emerald-400" />
-        <StatCard icon={Package}   label="오늘 총 배포" value={totalDelivered}    sub="부"               accent="text-blue-400" />
-        <StatCard icon={CheckCircle2} label="완료"     value={doneCount}         sub={`/ ${routes.length}팀`} accent="text-violet-400" />
-        <StatCard icon={TrendingUp} label="배포처"     value={totalLocations}    sub="등록됨"            accent="text-amber-400" />
-      </div>
-
-      {/* 배포자 현황 테이블 */}
-      <div className="bg-[#161b27] rounded-2xl border border-white/5 overflow-hidden">
-        {/* 테이블 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <div className="flex items-center gap-2">
-            <Users size={15} className="text-slate-400" />
-            <h2 className="text-white font-semibold text-sm">오늘 배포 현황</h2>
-          </div>
-          <span className="text-slate-500 text-xs">{routes.length}명</span>
+      {/* 우상단 KPI 오버레이 */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+        <div className="bg-[#161b27]/90 backdrop-blur-sm rounded-2xl border border-white/10 px-4 py-3 flex gap-4">
+          <KpiChip icon={Activity}  value={activeCount}    label="배포 중"  color="text-emerald-400" />
+          <KpiChip icon={Package}   value={totalDelivered} label="총 배포"  color="text-blue-400" />
+          <KpiChip icon={CheckCircle2} value={doneCount}   label="완료"     color="text-violet-400" />
+          <KpiChip icon={TrendingUp} value={totalLocations} label="배포처"  color="text-amber-400" />
         </div>
+      </div>
 
-        {routes.length === 0 && (
-          <div className="text-center text-slate-600 py-16 text-sm">
-            오늘 배포 시작한 팀이 없습니다
+      {/* 하단 슬라이드 패널 */}
+      <div className={`absolute bottom-0 left-0 right-0 z-10 transition-transform duration-300 ${showPanel ? "translate-y-0" : "translate-y-[calc(100%-44px)]"}`}>
+        {/* 토글 핸들 */}
+        <button
+          onClick={() => setShowPanel((v) => !v)}
+          className="mx-auto flex items-center gap-2 bg-[#161b27]/90 backdrop-blur-sm border border-white/10 border-b-0 rounded-t-2xl px-6 py-2.5 text-slate-400 text-xs font-medium hover:text-white transition-colors"
+        >
+          {showPanel ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          {showPanel ? "패널 닫기" : `오늘 배포 현황 · ${routes.length}명`}
+        </button>
+
+        <div className="bg-[#161b27]/95 backdrop-blur-sm border-t border-white/10 max-h-[55vh] overflow-y-auto">
+          {/* 날씨 */}
+          <div className="px-4 pt-4">
+            <WeatherWidget compact />
           </div>
-        )}
 
-        {routes.length > 0 && (
-          <div className="divide-y divide-white/5">
-            {routes.map((route) => {
-              const count = countByRoute[route.id] ?? 0;
-              return (
-                <div key={route.id} className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors">
-                  {/* 아바타 */}
-                  <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-bold text-sm">
-                      {(route.distributors?.name ?? "?")[0]}
-                    </span>
-                  </div>
+          {/* 배포자 목록 */}
+          <div className="px-4 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Users size={13} className="text-slate-400" />
+                <h2 className="text-white font-semibold text-sm">오늘 배포 현황</h2>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />배포중</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />정지</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />완료</span>
+              </div>
+            </div>
 
-                  {/* 이름·팀 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium text-sm leading-none mb-1 truncate">
-                      {route.distributors?.name ?? "-"}
-                    </p>
-                    <p className="text-slate-500 text-xs truncate">
-                      {route.teams?.region} · {route.teams?.name}
-                    </p>
-                  </div>
-
-                  {/* GPS 위치 */}
-                  {route.last_lat && (
-                    <div className="hidden sm:flex items-center gap-1 text-slate-600 text-xs">
-                      <MapPin size={11} />
-                      <span>{route.last_lat.toFixed(3)}, {route.last_lng?.toFixed(3)}</span>
+            {routes.length === 0 ? (
+              <p className="text-center text-slate-600 py-8 text-sm">오늘 배포 시작한 팀이 없습니다</p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                {routes.map((route) => {
+                  const count = countByRoute[route.id] ?? 0;
+                  return (
+                    <div key={route.id} className="flex items-center gap-3 bg-white/[0.03] hover:bg-white/[0.06] rounded-xl px-4 py-3 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-sm">{(route.distributors?.name ?? "?")[0]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium text-sm leading-none mb-1 truncate">{route.distributors?.name ?? "-"}</p>
+                        <p className="text-slate-500 text-xs truncate">{route.teams?.region} · {route.teams?.name}</p>
+                      </div>
+                      {route.last_lat && (
+                        <MapPin size={11} className="text-slate-600 flex-shrink-0" />
+                      )}
+                      <StatusBadge status={route.status} />
+                      <div className="text-right flex-shrink-0 w-12">
+                        <p className="text-white font-bold text-lg leading-none">{count}</p>
+                        <p className="text-slate-600 text-xs">부</p>
+                      </div>
                     </div>
-                  )}
+                  );
+                })}
+              </div>
+            )}
 
-                  {/* 상태 뱃지 */}
-                  <StatusBadge status={route.status} />
-
-                  {/* 배포 수 */}
-                  <div className="text-right flex-shrink-0 w-14">
-                    <p className="text-white font-bold text-lg leading-none">{count}</p>
-                    <p className="text-slate-600 text-xs">부</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 하단 요약 바 */}
-      {routes.length > 0 && (
-        <div className="mt-4 bg-[#161b27] rounded-2xl border border-white/5 px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <p className="text-slate-500 text-xs">등록 배포자</p>
-              <p className="text-white font-bold">{totalDistributors}</p>
-            </div>
-            <div className="w-px h-8 bg-white/5" />
-            <div className="text-center">
-              <p className="text-slate-500 text-xs">오늘 참여</p>
-              <p className="text-white font-bold">{routes.length}</p>
-            </div>
-            <div className="w-px h-8 bg-white/5" />
-            <div className="text-center">
-              <p className="text-slate-500 text-xs">평균 배포</p>
-              <p className="text-white font-bold">
-                {routes.length > 0 ? Math.round(totalDelivered / routes.length) : 0}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-500 text-xs">총 배포</p>
-            <p className="text-blue-400 font-bold text-xl">{totalDelivered}</p>
+            {/* 요약 */}
+            {routes.length > 0 && (
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-500 px-1">
+                <span>등록 배포자 {totalDistributors}명 · 오늘 참여 {routes.length}명</span>
+                <span className="text-blue-400 font-bold text-sm">총 {totalDelivered}부</span>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+function KpiChip({ icon: Icon, value, label, color }: { icon: React.ElementType; value: number; label: string; color: string }) {
+  return (
+    <div className="text-center">
+      <div className="flex items-center gap-1.5 justify-center mb-0.5">
+        <Icon size={12} className={color} />
+        <p className="text-slate-400 text-xs">{label}</p>
+      </div>
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
     </div>
   );
 }

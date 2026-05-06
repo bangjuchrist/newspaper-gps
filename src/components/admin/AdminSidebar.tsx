@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -24,10 +25,33 @@ const NAV = [
   { href: "/admin/reports", label: "완료 보고서", icon: FileText },
 ];
 
+interface Region {
+  name: string;
+  count: number;
+}
+
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [regions, setRegions] = useState<Region[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from("teams")
+      .select("region")
+      .then(({ data }) => {
+        if (!data) return;
+        const grouped: Record<string, number> = {};
+        for (const row of data) {
+          grouped[row.region] = (grouped[row.region] ?? 0) + 1;
+        }
+        setRegions(
+          Object.entries(grouped).map(([name, count]) => ({ name, count }))
+        );
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -75,6 +99,25 @@ export default function AdminSidebar() {
             );
           })}
         </nav>
+
+        {/* 권역 */}
+        {regions.length > 0 && (
+          <div className="px-3 py-3 border-t border-white/5">
+            <p className="text-slate-600 text-[11px] font-semibold uppercase tracking-wider px-3 mb-2">
+              권역
+            </p>
+            {regions.map((r) => (
+              <Link
+                key={r.name}
+                href={`/admin?region=${encodeURIComponent(r.name)}`}
+                className="flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <span className="text-slate-400 text-xs">{r.name}</span>
+                <span className="text-slate-600 text-xs">{r.count}팀</span>
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* 로그아웃 */}
         <div className="px-3 py-4 border-t border-white/5">

@@ -6,6 +6,7 @@ interface Marker {
   lat: number;
   lng: number;
   label?: string;
+  color?: string;
 }
 
 interface Polyline {
@@ -91,13 +92,24 @@ export default function KakaoMap({
     const { maps } = window.kakao;
 
     markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = markers.map((m) =>
-      new maps.Marker({
+    markersRef.current = markers.map((m) => {
+      const markerOptions: Record<string, unknown> = {
         map: mapRef.current,
         position: new maps.LatLng(m.lat, m.lng),
         title: m.label,
-      })
-    );
+      };
+      if (m.color) {
+        const svg = encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="8" fill="${m.color}" stroke="white" stroke-width="2.5"/></svg>`
+        );
+        markerOptions.image = new maps.MarkerImage(
+          `data:image/svg+xml;charset=UTF-8,${svg}`,
+          new maps.Size(22, 22),
+          { offset: new maps.Point(11, 11) }
+        );
+      }
+      return new maps.Marker(markerOptions);
+    });
   }, [markers]);
 
   useEffect(() => {

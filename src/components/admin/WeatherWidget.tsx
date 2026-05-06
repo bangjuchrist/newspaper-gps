@@ -32,7 +32,7 @@ interface WeatherData {
   source?: string;
 }
 
-export default function WeatherWidget() {
+export default function WeatherWidget({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -61,13 +61,53 @@ export default function WeatherWidget() {
 
   const { current, days, model, source } = data;
 
+  if (compact) {
+    const today = days[0];
+    return (
+      <div className="flex items-center gap-4 mb-3 px-1">
+        <a href="https://weather.naver.com/today/03121520" target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <span className="text-2xl">{current.icon}</span>
+          <div>
+            <p className="text-white font-bold text-lg leading-none">{current.temp}°</p>
+            <p className="text-slate-400 text-xs">{current.label || "창원시"}</p>
+          </div>
+        </a>
+        <div className="text-xs text-slate-500 space-y-0.5">
+          <p>최고 {today?.maxTemp ?? "—"}° / 최저 {today?.minTemp ?? "—"}°</p>
+          <p>강수 {today?.precipProb ?? 0}% · 바람 {current.wind}km/h</p>
+        </div>
+        <div className="flex gap-2 ml-auto overflow-x-auto">
+          {days.slice(1, 5).map((d) => {
+            const dow = ["일","월","화","수","목","금","토"][new Date(d.date).getDay()];
+            return (
+              <div key={d.date} className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                <span className="text-slate-500 text-[10px]">{dow}</span>
+                <span className="text-base">{d.icon}</span>
+                <span className="text-red-400 text-[10px]">{d.maxTemp}°</span>
+                <span className="text-blue-400 text-[10px]">{d.minTemp}°</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#161b27] rounded-2xl border border-white/5 mb-7 overflow-hidden">
       {/* 현재 날씨 */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between border-b border-white/5">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <p className="text-slate-400 text-xs font-medium">창원시 현재 날씨</p>
+            <a
+              href="https://weather.naver.com/today/03121520"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 text-xs font-medium hover:text-blue-400 transition-colors underline underline-offset-2"
+            >
+              창원시 현재 날씨
+            </a>
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
               source === "kma"
                 ? "bg-blue-500/20 text-blue-400"
