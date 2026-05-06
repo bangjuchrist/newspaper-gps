@@ -46,11 +46,11 @@ export async function POST(request: NextRequest) {
 
   if (!distributor) return NextResponse.json({ error: "등록된 배포자가 아닙니다" }, { status: 404 });
 
+  const fakeEmail = `${normalized}@gps.local`;
   let authUserId = distributor.auth_user_id;
 
-  // Supabase auth 계정이 없으면 생성 (phone → fake email 방식)
   if (!authUserId) {
-    const fakeEmail = `${normalized}@gps.local`;
+    // 신규: Supabase 계정 생성
     const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
       email: fakeEmail,
       email_confirm: true,
@@ -60,10 +60,18 @@ export async function POST(request: NextRequest) {
 
     authUserId = newUser.user.id;
     await supabase.from("distributors").update({ auth_user_id: authUserId }).eq("id", distributor.id);
+  } else {
+    // 기존 계정: email이 없거나 다르면 업데이트 (구 phone-auth 유저 대응)
+    const { data: existing } = await supabase.auth.admin.getUserById(authUserId);
+    if (existing?.user && existing.user.email !== fakeEmail) {
+      await supabase.auth.admin.updateUserById(authUserId, {
+        email: fakeEmail,
+        email_confirm: true,
+      });
+    }
   }
 
-  // magic link 생성 → 토큰 추출 → 클라이언트에서 세션 교환
-  const fakeEmail = `${normalized}@gps.local`;
+  // magic link 토큰 발급 → 클라이언트에서 세션 교환
   const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email: fakeEmail,
@@ -72,6 +80,5 @@ export async function POST(request: NextRequest) {
 
   if (linkErr || !linkData) return NextResponse.json({ error: "세션 생성 실패" }, { status: 500 });
 
-  const token = linkData.properties.email_otp;
-  return NextResponse.json({ ok: true, token, email: fakeEmail });
+  return NextResponse.json({ ok: true, token: linkData.properties.email_otp, email: fakeEmail });
 }
