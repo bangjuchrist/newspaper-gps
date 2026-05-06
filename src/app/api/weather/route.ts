@@ -212,9 +212,6 @@ async function fetchOpenMeteo() {
 }
 
 export async function GET() {
-  // TODO: 기상청 API허브 키 승인 후 아래 줄 제거
-  return NextResponse.json(await fetchOpenMeteo());
-  // eslint-disable-next-line no-unreachable
   if (!KEY) return NextResponse.json(await fetchOpenMeteo());
 
   try {
