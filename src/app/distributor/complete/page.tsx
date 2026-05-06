@@ -14,7 +14,6 @@ export default async function CompletePage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth");
 
-  // 배포 이벤트 집계
   const { data: events } = await supabase
     .from("distribution_events")
     .select("type, count")
@@ -28,23 +27,31 @@ export default async function CompletePage({ searchParams }: PageProps) {
     ?.filter((e) => e.type === "undo")
     .reduce((sum, e) => sum + e.count, 0) ?? 0;
 
-  const remaining = events
+  const initialRemaining = events
     ?.filter((e) => e.type === "remaining_initial")
     .reduce((sum, e) => sum + e.count, 0) ?? 0;
 
-  const { data: distributor } = await supabase
+  const { data: distributorRaw } = await supabase
     .from("distributors")
-    .select("id, name")
+    .select("id, name, teams(name, region)")
     .eq("auth_user_id", user.id)
     .single();
+
+  const distributor = distributorRaw as unknown as {
+    id: string;
+    name: string;
+    teams: { name: string; region: string } | null;
+  } | null;
 
   return (
     <CompleteClient
       routeId={routeId}
       distributorId={distributor?.id ?? ""}
       distributorName={distributor?.name ?? ""}
+      teamName={distributor?.teams?.name ?? ""}
+      region={distributor?.teams?.region ?? ""}
       delivered={totalDelivered - totalUndo}
-      remaining={remaining - totalDelivered + totalUndo}
+      remaining={initialRemaining - totalDelivered + totalUndo}
     />
   );
 }

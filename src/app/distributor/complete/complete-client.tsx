@@ -8,6 +8,8 @@ interface CompleteClientProps {
   routeId: string;
   distributorId: string;
   distributorName: string;
+  teamName: string;
+  region: string;
   delivered: number;
   remaining: number;
 }
@@ -16,12 +18,15 @@ export default function CompleteClient({
   routeId,
   distributorId,
   distributorName,
+  teamName,
+  region,
   delivered,
   remaining,
 }: CompleteClientProps) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [notifyStatus, setNotifyStatus] = useState<"idle" | "sent" | "failed">("idle");
   const router = useRouter();
   const supabase = createClient();
 
@@ -29,7 +34,11 @@ export default function CompleteClient({
     setSubmitting(true);
     const today = new Date().toISOString().split("T")[0];
 
-    const summary = `배포 완료: ${delivered}부 배포, 잔여 ${remaining}부${notes ? `\n특이사항: ${notes}` : ""}`;
+    const summary = [
+      `배포 완료: ${delivered}부`,
+      `잔여: ${remaining}부`,
+      notes ? `특이사항: ${notes}` : null,
+    ].filter(Boolean).join("\n");
 
     const { error } = await supabase.from("reports").insert({
       route_id: routeId,
@@ -39,9 +48,33 @@ export default function CompleteClient({
       issues: notes ? [{ type: "note", description: notes }] : [],
     });
 
-    if (!error) {
-      setSubmitted(true);
+    if (error) {
+      setSubmitting(false);
+      return;
     }
+
+    // 알림톡 발송 (실패해도 보고서는 저장됨)
+    try {
+      const res = await fetch("/api/notify/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          routeId,
+          distributorName,
+          teamName,
+          region,
+          delivered,
+          remaining,
+          date: today,
+          notes: notes || undefined,
+        }),
+      });
+      setNotifyStatus(res.ok ? "sent" : "failed");
+    } catch {
+      setNotifyStatus("failed");
+    }
+
+    setSubmitted(true);
     setSubmitting(false);
   }
 
@@ -51,12 +84,19 @@ export default function CompleteClient({
         <div className="text-center">
           <div className="text-6xl mb-6">✅</div>
           <h1 className="text-2xl font-bold text-white mb-2">보고 완료!</h1>
-          <p className="text-slate-400 text-sm mb-8">
-            관리자에게 알림톡이 발송되었습니다
+          <p className="text-slate-400 text-sm mb-2">
+            {notifyStatus === "sent"
+              ? "관리자에게 SMS 알림이 발송되었습니다"
+              : notifyStatus === "failed"
+              ? "보고서 저장 완료 (알림 발송 실패)"
+              : "보고서가 저장되었습니다"}
+          </p>
+          <p className="text-slate-500 text-xs mb-8">
+            {distributorName}님 수고하셨습니다 🎉
           </p>
           <button
             onClick={() => router.push("/distributor")}
-            className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-2xl"
+            className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-2xl text-lg"
           >
             홈으로
           </button>
@@ -67,10 +107,11 @@ export default function CompleteClient({
 
   return (
     <main className="min-h-screen bg-slate-900 flex flex-col px-4 py-6">
-      <h1 className="text-2xl font-bold text-white mb-2">배포 완료 보고</h1>
-      <p className="text-slate-400 text-sm mb-8">{distributorName}님</p>
+      <h1 className="text-2xl font-bold text-white mb-1">배포 완료 보고</h1>
+      <p className="text-slate-400 text-sm mb-8">
+        {distributorName}님 · {region} {teamName}
+      </p>
 
-      {/* 결과 요약 */}
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="bg-slate-800 rounded-2xl p-5 text-center">
           <p className="text-slate-400 text-xs mb-1">배포 완료</p>
@@ -84,7 +125,6 @@ export default function CompleteClient({
         </div>
       </div>
 
-      {/* 특이사항 */}
       <div className="mb-6">
         <label className="block text-slate-300 text-sm mb-2">
           특이사항 (선택)
@@ -98,13 +138,12 @@ export default function CompleteClient({
         />
       </div>
 
-      {/* 제출 */}
       <button
         onClick={handleSubmitReport}
         disabled={submitting}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-5 rounded-2xl text-lg"
       >
-        {submitting ? "전송 중..." : "보고서 제출"}
+        {submitting ? "제출 중..." : "보고서 제출 및 알림 발송"}
       </button>
     </main>
   );

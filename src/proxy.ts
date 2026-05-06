@@ -29,7 +29,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const publicPaths = ["/auth", "/auth/verify"];
+  const publicPaths = ["/auth", "/auth/verify", "/admin/login"];
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     return supabaseResponse;
   }
@@ -44,7 +44,7 @@ export async function proxy(request: NextRequest) {
     const role = user.user_metadata?.role;
     if (role !== "admin") {
       const url = request.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = "/admin/login";
       return NextResponse.redirect(url);
     }
   }
