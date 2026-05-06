@@ -110,14 +110,16 @@ export default function AdminDashboardClient({
     : { lat: 35.2279, lng: 128.6811 }; // 창원시
 
   return (
-    <div className="relative" style={{ height: "100vh" }}>
+    <div className="relative w-full" style={{ height: "100dvh" }}>
       {/* 풀스크린 카카오맵 */}
-      <KakaoMap
-        center={mapCenter}
-        markers={markers}
-        className="absolute inset-0 w-full h-full"
-        zoom={12}
-      />
+      <div className="absolute inset-0">
+        <KakaoMap
+          center={mapCenter}
+          markers={markers}
+          className="w-full h-full"
+          zoom={12}
+        />
+      </div>
 
       {/* 우상단 KPI 오버레이 */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">

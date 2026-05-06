@@ -71,18 +71,27 @@ export default function KakaoMap({
       if (!containerRef.current) return;
       const { maps } = window.kakao;
 
-      const map = new maps.Map(containerRef.current, {
-        center: new maps.LatLng(center.lat, center.lng),
-        level: zoom,
-      });
-      mapRef.current = map;
-
-      if (onMapClick) {
-        maps.event.addListener(map, "click", (mouseEvent: { latLng: { getLat(): number; getLng(): number } }) => {
-          const latlng = mouseEvent.latLng;
-          onMapClick(latlng.getLat(), latlng.getLng());
+      // 컨테이너 크기가 0이면 다음 프레임까지 대기
+      const init = () => {
+        if (!containerRef.current) return;
+        const map = new maps.Map(containerRef.current, {
+          center: new maps.LatLng(center.lat, center.lng),
+          level: zoom,
         });
+        mapRef.current = map;
+        if (onMapClick) {
+          maps.event.addListener(map, "click", (mouseEvent: { latLng: { getLat(): number; getLng(): number } }) => {
+            onMapClick(mouseEvent.latLng.getLat(), mouseEvent.latLng.getLng());
+          });
+        }
+      };
+
+      if (containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
+        requestAnimationFrame(init);
+      } else {
+        init();
       }
+
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
