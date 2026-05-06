@@ -99,13 +99,21 @@ export default function AdminDashboardClient({
 
   return (
     <main className="min-h-screen bg-slate-900 p-4">
-      <header className="mb-6">
-        <h1 className="text-white font-bold text-xl">관리자 대시보드</h1>
-        <p className="text-slate-400 text-sm">
-          {new Date().toLocaleDateString("ko-KR", {
-            year: "numeric", month: "long", day: "numeric",
-          })}
-        </p>
+      <header className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-white font-bold text-xl">관리자 대시보드</h1>
+          <p className="text-slate-400 text-sm">
+            {new Date().toLocaleDateString("ko-KR", {
+              year: "numeric", month: "long", day: "numeric",
+            })}
+          </p>
+        </div>
+        <a
+          href="/admin/distributors"
+          className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-4 py-2 rounded-xl"
+        >
+          배포자 관리
+        </a>
       </header>
 
       {/* 요약 */}
