@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Marker {
   lat: number;
@@ -32,19 +32,27 @@ declare global {
   }
 }
 
+// Module-level singleton — prevents duplicate <script> tags in React StrictMode
+let _scriptPromise: Promise<void> | null = null;
+
 function loadKakaoScript(appKey: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.kakao?.maps) {
-      window.kakao.maps.load(resolve);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
-    script.async = true;
-    script.onload = () => window.kakao.maps.load(resolve);
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+  if (window.kakao?.maps) {
+    return new Promise((resolve) => window.kakao.maps.load(resolve));
+  }
+  if (!_scriptPromise) {
+    _scriptPromise = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+      script.async = true;
+      script.onload = () => window.kakao.maps.load(resolve);
+      script.onerror = () => {
+        _scriptPromise = null; // allow retry on next mount
+        reject(new Error("Kakao Maps 스크립트 로드 실패 — 카카오 개발자콘솔에서 이 도메인을 등록했는지 확인하세요"));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return _scriptPromise;
 }
 
 export default function KakaoMap({
@@ -62,18 +70,20 @@ export default function KakaoMap({
   const markersRef = useRef<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const polylinesRef = useRef<any[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const appKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
     if (!appKey || !containerRef.current) return;
 
+    let cancelled = false;
+
     loadKakaoScript(appKey).then(() => {
-      if (!containerRef.current) return;
+      if (cancelled || !containerRef.current) return;
       const { maps } = window.kakao;
 
-      // 컨테이너 크기가 0이면 다음 프레임까지 대기
       const init = () => {
-        if (!containerRef.current) return;
+        if (cancelled || !containerRef.current) return;
         const map = new maps.Map(containerRef.current, {
           center: new maps.LatLng(center.lat, center.lng),
           level: zoom,
@@ -91,8 +101,14 @@ export default function KakaoMap({
       } else {
         init();
       }
-
+    }).catch((err: unknown) => {
+      if (!cancelled) {
+        console.error("KakaoMap:", err instanceof Error ? err.message : err);
+        setLoadError(true);
+      }
     });
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -145,6 +161,17 @@ export default function KakaoMap({
       new window.kakao.maps.LatLng(center.lat, center.lng)
     );
   }, [center.lat, center.lng]);
+
+  if (loadError) {
+    return (
+      <div className={`${className} bg-slate-800 flex items-center justify-center`}>
+        <p className="text-slate-500 text-sm text-center px-4">
+          지도를 불러올 수 없습니다<br />
+          <span className="text-xs text-slate-600">카카오 개발자콘솔에서 도메인을 등록해주세요</span>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div

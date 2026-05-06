@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Users,
   MapPin,
-  Building2,
   ClipboardList,
   FileText,
   LogOut,
@@ -18,8 +17,7 @@ import { useRouter } from "next/navigation";
 
 const NAV = [
   { href: "/admin", label: "대시보드", icon: LayoutDashboard, exact: true },
-  { href: "/admin/distributors", label: "배포자 관리", icon: Users },
-  { href: "/admin/teams", label: "팀·권역 관리", icon: Building2 },
+  { href: "/admin/teams", label: "배포자·팀 관리", icon: Users },
   { href: "/admin/locations", label: "배포처 관리", icon: MapPin },
   { href: "/admin/routes", label: "배포 이력", icon: ClipboardList },
   { href: "/admin/reports", label: "완료 보고서", icon: FileText },
