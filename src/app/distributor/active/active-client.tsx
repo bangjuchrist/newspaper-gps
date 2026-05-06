@@ -161,51 +161,51 @@ export default function ActiveDeliveryClient({
       )}
 
       {/* 카운터 — 스테퍼 */}
-      <div className="px-4 py-5 grid grid-cols-2 gap-3">
+      <div className="px-4 py-4 grid grid-cols-2 gap-3">
         {/* 신문부수 (배포 완료) */}
-        <div className="bg-slate-800 rounded-2xl p-4">
-          <p className="text-slate-400 text-xs text-center mb-3">신문부수</p>
-          <div className="flex items-center justify-between gap-2">
+        <div className="bg-slate-800 rounded-2xl px-3 py-5 flex flex-col items-center gap-3">
+          <p className="text-slate-400 text-xs">신문부수</p>
+          <div className="flex items-center justify-between w-full gap-2">
             <button
               onClick={() => addEvent(1, "undo")}
               disabled={!isActive || delivered === 0}
-              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
             >
               −
             </button>
-            <p className="text-white text-4xl font-bold tabular-nums flex-1 text-center">{delivered}</p>
+            <p className="text-white text-6xl font-bold tabular-nums leading-none">{delivered}</p>
             <button
               onClick={() => handleDelivery(1)}
               disabled={!isActive}
-              className="w-12 h-12 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+              className="flex-shrink-0 w-16 h-16 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
             >
               +
             </button>
           </div>
-          <p className="text-slate-500 text-xs text-center mt-2">부</p>
+          <p className="text-slate-500 text-xs">부</p>
         </div>
 
         {/* 잔류부수 */}
-        <div className="bg-slate-800 rounded-2xl p-4">
-          <p className="text-slate-400 text-xs text-center mb-3">잔류부수</p>
-          <div className="flex items-center justify-between gap-2">
+        <div className="bg-slate-800 rounded-2xl px-3 py-5 flex flex-col items-center gap-3">
+          <p className="text-slate-400 text-xs">잔류부수</p>
+          <div className="flex items-center justify-between w-full gap-2">
             <button
               onClick={() => setRemaining((r) => Math.max(0, r - 1))}
               disabled={!isActive || remaining === 0}
-              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
             >
               −
             </button>
-            <p className="text-blue-400 text-4xl font-bold tabular-nums flex-1 text-center">{remaining}</p>
+            <p className="text-blue-400 text-6xl font-bold tabular-nums leading-none">{remaining}</p>
             <button
               onClick={() => setRemaining((r) => r + 1)}
               disabled={!isActive}
-              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
             >
               +
             </button>
           </div>
-          <p className="text-slate-500 text-xs text-center mt-2">부</p>
+          <p className="text-slate-500 text-xs">부</p>
         </div>
       </div>
 
