@@ -11,15 +11,19 @@ export default async function AdminDashboardPage() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  const { data: routesRaw } = await supabase
-    .from("routes")
-    .select(`
-      id, status, date, last_lat, last_lng,
-      distributors(name, phone),
-      teams(name, region)
-    `)
-    .eq("date", today)
-    .order("created_at", { ascending: true });
+  const [
+    { data: routesRaw },
+    { count: totalLocations },
+    { count: totalDistributors },
+  ] = await Promise.all([
+    supabase
+      .from("routes")
+      .select("id, status, date, last_lat, last_lng, distributors(name, phone), teams(name, region)")
+      .eq("date", today)
+      .order("created_at", { ascending: true }),
+    supabase.from("locations").select("id", { count: "exact", head: true }).eq("active", true),
+    supabase.from("distributors").select("id", { count: "exact", head: true }),
+  ]);
 
   const routes = (routesRaw ?? []) as unknown as RouteRecord[];
   const routeIds = routes.map((r) => r.id);
@@ -44,6 +48,8 @@ export default async function AdminDashboardPage() {
     <AdminDashboardClient
       routes={routes}
       countByRoute={countByRoute}
+      totalLocations={totalLocations ?? 0}
+      totalDistributors={totalDistributors ?? 0}
     />
   );
 }
