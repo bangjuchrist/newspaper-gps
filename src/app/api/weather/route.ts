@@ -159,7 +159,64 @@ function isoDate(offset: number) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
 }
 
+/** Open-Meteo 폴백 (창원시) */
+async function fetchOpenMeteo() {
+  const url =
+    "https://api.open-meteo.com/v1/forecast" +
+    "?latitude=35.2279&longitude=128.6811" +
+    "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
+    "&timezone=Asia%2FSeoul&forecast_days=7";
+
+  const res = await fetch(url, { next: { revalidate: 1800 } } as RequestInit);
+  if (!res.ok) throw new Error("open-meteo fail");
+  const data = await res.json();
+
+  const WMO_ICON: Record<number, string> = {
+    0: "☀️", 1: "🌤", 2: "⛅", 3: "☁️",
+    45: "🌫", 48: "🌫", 51: "🌦", 53: "🌦", 55: "🌧",
+    61: "🌧", 63: "🌧", 65: "🌧", 71: "🌨", 73: "🌨", 75: "❄️",
+    80: "🌦", 81: "🌧", 82: "⛈", 95: "⛈", 96: "⛈", 99: "⛈",
+  };
+  const WMO_LABEL: Record<number, string> = {
+    0: "맑음", 1: "대체로 맑음", 2: "구름 조금", 3: "흐림",
+    45: "안개", 48: "안개", 51: "이슬비", 53: "이슬비", 55: "이슬비",
+    61: "비", 63: "비", 65: "강한 비", 71: "눈", 73: "눈", 75: "강한 눈",
+    80: "소나기", 81: "소나기", 82: "강한 소나기",
+    95: "뇌우", 96: "뇌우", 99: "뇌우",
+  };
+  function wmoKey(code: number) {
+    return Object.keys(WMO_ICON).map(Number).filter((k) => k <= code).at(-1) ?? 0;
+  }
+
+  const c = data.current;
+  const current = {
+    temp: Math.round(c.temperature_2m),
+    humidity: c.relative_humidity_2m,
+    wind: Math.round(c.wind_speed_10m),
+    label: WMO_LABEL[wmoKey(c.weather_code)] ?? "",
+    icon: WMO_ICON[wmoKey(c.weather_code)] ?? "🌡",
+  };
+
+  const days = (data.daily.time as string[]).map((date: string, i: number) => ({
+    date,
+    maxTemp: Math.round(data.daily.temperature_2m_max[i]),
+    minTemp: Math.round(data.daily.temperature_2m_min[i]),
+    precipProb: data.daily.precipitation_probability_max[i] ?? 0,
+    wind: Math.round(data.daily.wind_speed_10m_max[i]),
+    label: WMO_LABEL[wmoKey(data.daily.weather_code[i])] ?? "",
+    icon: WMO_ICON[wmoKey(data.daily.weather_code[i])] ?? "🌡",
+  }));
+
+  return { current, days, source: "open-meteo" };
+}
+
 export async function GET() {
+  // TODO: 기상청 API허브 키 승인 후 아래 줄 제거
+  return NextResponse.json(await fetchOpenMeteo());
+  // eslint-disable-next-line no-unreachable
+  if (!KEY) return NextResponse.json(await fetchOpenMeteo());
+
   try {
     const [fcstItems, ncstItems, midLand, midTemp] = await Promise.all([
       fetchVillageFcst(),
@@ -250,7 +307,11 @@ export async function GET() {
 
     return NextResponse.json({ current, days: [...shortDays, ...midDays] });
   } catch (e) {
-    console.error("weather fetch error", e);
-    return NextResponse.json({ error: "날씨 조회 실패" }, { status: 500 });
+    console.warn("KMA API 실패, Open-Meteo 폴백:", e);
+    try {
+      return NextResponse.json(await fetchOpenMeteo());
+    } catch {
+      return NextResponse.json({ error: "날씨 조회 실패" }, { status: 500 });
+    }
   }
 }
