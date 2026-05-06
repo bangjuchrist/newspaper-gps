@@ -108,12 +108,13 @@ export default function AdminDashboardClient({
             })}
           </p>
         </div>
-        <a
-          href="/admin/distributors"
-          className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-4 py-2 rounded-xl"
-        >
-          배포자 관리
-        </a>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <a href="/admin/teams" className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-xl">팀 관리</a>
+          <a href="/admin/locations" className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-xl">배포처</a>
+          <a href="/admin/distributors" className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-xl">배포자</a>
+          <a href="/admin/routes" className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-xl">배포이력</a>
+          <a href="/admin/reports" className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium px-3 py-2 rounded-xl">완료보고</a>
+        </div>
       </header>
 
       {/* 요약 */}
