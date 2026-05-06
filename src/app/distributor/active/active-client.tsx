@@ -161,7 +161,7 @@ export default function ActiveDeliveryClient({
       )}
 
       {/* 카운터 — 스테퍼 */}
-      <div className="px-4 py-4 grid grid-cols-2 gap-3">
+      <div className="px-4 py-4 flex flex-col gap-3">
         {/* 신문부수 (배포 완료) */}
         <div className="bg-slate-800 rounded-2xl px-3 py-5 flex flex-col items-center gap-3">
           <p className="text-slate-400 text-xs">신문부수</p>
