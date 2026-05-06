@@ -32,6 +32,12 @@ export default function LocationsClient({
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [filterTeam, setFilterTeam] = useState("");
+  const [showImport, setShowImport] = useState(false);
+  const [importTeam, setImportTeam] = useState(teams[0]?.id ?? "");
+  const [importPreview, setImportPreview] = useState<{ name: string; lat: number; lng: number; description: string }[] | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
   const router = useRouter();
   const supabase = createClient();
 
@@ -109,6 +115,35 @@ export default function LocationsClient({
     setLocations((prev) => prev.filter((l) => l.id !== id));
   }
 
+  async function handleImportPreview() {
+    if (!importFile) return;
+    setImporting(true);
+    setImportMsg("");
+    const fd = new FormData();
+    fd.append("file", importFile);
+    const res = await fetch("/api/admin/import/kml", { method: "POST", body: fd });
+    const json = await res.json();
+    if (json.error) { setImportMsg(json.error); setImporting(false); return; }
+    setImportPreview(json.preview);
+    setImporting(false);
+  }
+
+  async function handleImportSave() {
+    if (!importFile || !importTeam) return;
+    setImporting(true);
+    setImportMsg("");
+    const fd = new FormData();
+    fd.append("file", importFile);
+    const res = await fetch(`/api/admin/import/kml?save=1&team_id=${importTeam}`, { method: "POST", body: fd });
+    const json = await res.json();
+    if (json.error) { setImportMsg(json.error); setImporting(false); return; }
+    setImportMsg(`${json.inserted}개 배포처 등록 완료`);
+    setImportPreview(null);
+    setImporting(false);
+    setShowImport(false);
+    router.refresh();
+  }
+
   const mapMarkers = filtered.map((l) => ({ lat: l.lat, lng: l.lng, label: l.name }));
   const mapCenter = filtered[0] ? { lat: filtered[0].lat, lng: filtered[0].lng } : { lat: 37.5665, lng: 126.9780 };
 
@@ -120,9 +155,14 @@ export default function LocationsClient({
           <h1 className="text-white font-bold text-xl">배포처 관리</h1>
           <p className="text-slate-400 text-sm">{locations.length}곳 등록됨</p>
         </div>
-        <button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm">
-          + 추가
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => { setShowImport(true); setImportPreview(null); setImportMsg(""); }} className="bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium px-3 py-2 rounded-xl text-sm">
+            KML 가져오기
+          </button>
+          <button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm">
+            + 추가
+          </button>
+        </div>
       </header>
 
       {/* 필터 + 뷰 전환 */}
@@ -245,6 +285,79 @@ export default function LocationsClient({
               <button onClick={handleSave} disabled={saving} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-4 rounded-xl font-semibold">
                 {saving ? "저장 중..." : "저장"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KML 임포트 모달 */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50">
+          <div className="bg-slate-800 rounded-t-3xl w-full max-w-lg p-6 pb-10 max-h-[85vh] overflow-y-auto">
+            <h2 className="text-white font-bold text-lg mb-4">구글맵 KML 가져오기</h2>
+
+            <div className="space-y-4">
+              {/* 사용 방법 안내 */}
+              <div className="bg-slate-700 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+                <p className="font-semibold text-slate-200">구글 내 지도에서 KML 내보내기:</p>
+                <p>1. 구글 내 지도 열기 → 점 3개 메뉴</p>
+                <p>2. &quot;KML/KMZ로 내보내기&quot; 클릭</p>
+                <p>3. &quot;KML로 내보냅니다&quot; 체크 → 다운로드</p>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">KML 파일 선택</label>
+                <input
+                  type="file"
+                  accept=".kml,.kmz"
+                  onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportPreview(null); }}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 text-sm mb-1">배정 팀</label>
+                <select value={importTeam} onChange={(e) => setImportTeam(e.target.value)}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-white focus:outline-none">
+                  <option value="">팀 선택</option>
+                  {teams.map((t) => <option key={t.id} value={t.id}>{t.region} · {t.name}</option>)}
+                </select>
+              </div>
+
+              {importMsg && <p className="text-green-400 text-sm">{importMsg}</p>}
+
+              {/* 미리보기 */}
+              {importPreview && (
+                <div>
+                  <p className="text-slate-300 text-sm mb-2">{importPreview.length}개 배포처 발견</p>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {importPreview.slice(0, 50).map((p, i) => (
+                      <div key={i} className="bg-slate-700 rounded-lg px-3 py-2 text-xs">
+                        <p className="text-white">{p.name}</p>
+                        <p className="text-slate-400">{p.lat.toFixed(5)}, {p.lng.toFixed(5)}</p>
+                      </div>
+                    ))}
+                    {importPreview.length > 50 && (
+                      <p className="text-slate-500 text-xs text-center">... 외 {importPreview.length - 50}개</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowImport(false)} className="flex-1 bg-slate-700 text-slate-300 py-4 rounded-xl font-medium">취소</button>
+              {!importPreview ? (
+                <button onClick={handleImportPreview} disabled={!importFile || importing}
+                  className="flex-1 bg-slate-600 hover:bg-slate-500 disabled:opacity-50 text-white py-4 rounded-xl font-semibold">
+                  {importing ? "분석 중..." : "미리보기"}
+                </button>
+              ) : (
+                <button onClick={handleImportSave} disabled={!importTeam || importing}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-4 rounded-xl font-semibold">
+                  {importing ? "등록 중..." : `${importPreview.length}개 등록`}
+                </button>
+              )}
             </div>
           </div>
         </div>
