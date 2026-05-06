@@ -38,10 +38,6 @@ export default async function ActiveDeliveryPage({ searchParams }: PageProps) {
     .select("type, count")
     .eq("route_id", routeId);
 
-  const initialRemaining = events
-    ?.filter((e) => e.type === "remaining_initial")
-    .reduce((sum, e) => sum + e.count, 0) ?? 0;
-
   const delivered = events
     ?.filter((e) => e.type === "delivered")
     .reduce((sum, e) => sum + e.count, 0) ?? 0;
@@ -60,7 +56,7 @@ export default async function ActiveDeliveryPage({ searchParams }: PageProps) {
         distributorName={distributorName}
         initialStatus={route.status === "paused" ? "paused" : "active"}
         initialDelivered={delivered - undone}
-        initialRemaining={initialRemaining - delivered + undone}
+        initialRemaining={0}
         lastEvent={events?.[events.length - 1] ?? null}
       />
     </Suspense>
