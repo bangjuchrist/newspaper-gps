@@ -39,7 +39,7 @@ function loadNaverScript(clientId: string): Promise<void> {
   if (!_scriptPromise) {
     _scriptPromise = new Promise<void>((resolve, reject) => {
       const script = document.createElement("script");
-      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
+      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`;
       script.async = true;
       script.onload = () => resolve();
       script.onerror = () => {
