@@ -121,6 +121,68 @@ async function fetchUltraNcst() {
   return json.response?.body?.items?.item ?? [];
 }
 
+/** 초단기예보: 매시 30분 발표, 45분 이후 이용 가능, 6시간 1시간 간격 */
+async function fetchUltraSrtFcst() {
+  const now = new Date(Date.now() + 9 * 3600_000);
+  const h = now.getUTCHours();
+  const m = now.getUTCMinutes();
+  let baseH = m >= 45 ? h : h - 1;
+  let date = now;
+  if (baseH < 0) { baseH = 23; date = new Date(now.getTime() - 86400_000); }
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+
+  const url = new URL(`${BASE}/VilageFcstInfoService_2.0/getUltraSrtFcst`);
+  url.searchParams.set("serviceKey", KEY);
+  url.searchParams.set("numOfRows", "200");
+  url.searchParams.set("dataType", "JSON");
+  url.searchParams.set("base_date", `${yyyy}${mm}${dd}`);
+  url.searchParams.set("base_time", `${String(baseH).padStart(2, "0")}30`);
+  url.searchParams.set("nx", String(NX));
+  url.searchParams.set("ny", String(NY));
+
+  const res = await fetch(url.toString(), { next: { revalidate: 1800 } });
+  const json = await res.json();
+  return json.response?.body?.items?.item ?? [];
+}
+
+/** Open-Meteo 대기질 API (무료·키 없음) */
+async function fetchAirQuality() {
+  try {
+    const res = await fetch(
+      "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=35.2279&longitude=128.6811&current=pm10,pm2_5&timezone=Asia%2FSeoul",
+      { next: { revalidate: 3600 } } as RequestInit
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    return { pm10: Math.round(d.current.pm10), pm25: Math.round(d.current.pm2_5) };
+  } catch { return null; }
+}
+
+function aqLabel(pm10: number) {
+  if (pm10 <= 30) return "좋음";
+  if (pm10 <= 80) return "보통";
+  if (pm10 <= 150) return "나쁨";
+  return "매우나쁨";
+}
+function aq25Label(pm25: number) {
+  if (pm25 <= 15) return "좋음";
+  if (pm25 <= 35) return "보통";
+  if (pm25 <= 75) return "나쁨";
+  return "매우나쁨";
+}
+function isNight(hhmm: string) {
+  const h = parseInt(hhmm.slice(0, 2), 10);
+  return h >= 20 || h < 6;
+}
+function weatherIconHour(sky: string, pty: string, hhmm: string) {
+  if (pty && pty !== "0") return PTY_ICON[pty] ?? "🌧";
+  const night = isNight(hhmm);
+  if (night) return sky === "1" ? "🌙" : sky === "3" ? "🌥" : "☁️";
+  return SKY_ICON[sky] ?? "☀️";
+}
+
 async function fetchMidLand() {
   const tmFc = getMidBaseDateTime();
   const url = new URL(`${BASE}/MidFcstInfoService/getMidLandFcst`);
@@ -215,25 +277,78 @@ export async function GET() {
   if (!KEY) return NextResponse.json(await fetchOpenMeteo());
 
   try {
-    const [fcstItems, ncstItems, midLand, midTemp] = await Promise.all([
+    const [fcstItems, ncstItems, srtItems, midLand, midTemp, aq] = await Promise.all([
       fetchVillageFcst(),
       fetchUltraNcst(),
+      fetchUltraSrtFcst(),
       fetchMidLand(),
       fetchMidTemp(),
+      fetchAirQuality(),
     ]);
 
     // 현재 실황
     const ncst: Record<string, string> = {};
     for (const item of ncstItems) ncst[item.category] = item.obsrValue;
 
+    // 초단기예보 첫 항목에서 SKY 코드 확보
+    const srtByTime: Record<string, Record<string, string>> = {};
+    for (const item of srtItems) {
+      const key = item.fcstDate + item.fcstTime;
+      if (!srtByTime[key]) srtByTime[key] = {};
+      srtByTime[key][item.category] = item.fcstValue;
+    }
+    const srtTimes = Object.keys(srtByTime).sort();
+    const firstSky = srtByTime[srtTimes[0]]?.["SKY"] ?? "1";
+    const pty = ncst["PTY"] ?? "0";
+    const nowHHMM = new Date(Date.now() + 9 * 3600_000).toISOString().slice(11, 13) + "00";
+
     const current = {
-      temp: Math.round(Number(ncst["T1H"] ?? 0)),
+      temp: Number(ncst["T1H"] ?? 0),
       humidity: Number(ncst["REH"] ?? 0),
-      wind: Math.round(Number(ncst["WSD"] ?? 0) * 3.6), // m/s → km/h
-      pty: ncst["PTY"] ?? "0",
-      label: weatherLabel("1", ncst["PTY"] ?? "0"),
-      icon: weatherIcon("1", ncst["PTY"] ?? "0"),
+      wind: Math.round(Number(ncst["WSD"] ?? 0) * 3.6),
+      label: weatherLabel(firstSky, pty),
+      icon: weatherIconHour(firstSky, pty, nowHHMM),
     };
+
+    // 오늘 최고/최저 기온 (단기예보 TMN/TMX)
+    const todayStr = dateStr(0);
+    let todayMin: number | null = null;
+    let todayMax: number | null = null;
+    for (const item of fcstItems) {
+      if (item.fcstDate !== todayStr) continue;
+      if (item.category === "TMN") todayMin = Math.round(Number(item.fcstValue));
+      if (item.category === "TMX") todayMax = Math.round(Number(item.fcstValue));
+    }
+    // TMN/TMX 없으면 TMP 범위로 계산
+    if (todayMin === null || todayMax === null) {
+      const todayTemps = fcstItems
+        .filter((i: { fcstDate: string; category: string }) => i.fcstDate === todayStr && i.category === "TMP")
+        .map((i: { fcstValue: string }) => Number(i.fcstValue));
+      if (todayTemps.length) {
+        todayMin = Math.round(Math.min(...todayTemps));
+        todayMax = Math.round(Math.max(...todayTemps));
+      }
+    }
+
+    // 시간별 예보 (초단기, 향후 6시간)
+    const hourly = srtTimes.slice(0, 7).map((key) => {
+      const d = srtByTime[key];
+      const hhmm = key.slice(8); // HHMM
+      const h = parseInt(hhmm.slice(0, 2), 10);
+      return {
+        time: `${h}시`,
+        temp: Math.round(Number(d["T1H"] ?? 0)),
+        icon: weatherIconHour(d["SKY"] ?? "1", d["PTY"] ?? "0", hhmm),
+      };
+    });
+
+    // 대기질
+    const airQuality = aq
+      ? {
+          pm10: { value: aq.pm10, label: aqLabel(aq.pm10) },
+          pm25: { value: aq.pm25, label: aq25Label(aq.pm25) },
+        }
+      : null;
 
     // 단기예보 → 날짜별 집계 (오늘~모레)
     type DayData = {
@@ -303,8 +418,10 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      current,
+      current: { ...current, minTemp: todayMin, maxTemp: todayMax },
       days: [...shortDays, ...midDays],
+      hourly,
+      airQuality,
       model: "기상청 수치예보모델 (UM · GFS)",
       source: "kma",
     });
