@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SolapiMessageService } from "solapi";
 
-const sms = new SolapiMessageService(
-  process.env.SOLAPI_API_KEY!,
-  process.env.SOLAPI_API_SECRET!
-);
-
 function normalize(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("82")) return `0${digits.slice(2)}`;
@@ -47,6 +42,10 @@ export async function POST(request: NextRequest) {
   if (dbErr) return NextResponse.json({ error: "OTP 생성 실패" }, { status: 500 });
 
   // SOLAPI로 SMS 발송
+  const sms = new SolapiMessageService(
+    process.env.SOLAPI_API_KEY!,
+    process.env.SOLAPI_API_SECRET!
+  );
   try {
     await sms.send({
       to: normalized,
