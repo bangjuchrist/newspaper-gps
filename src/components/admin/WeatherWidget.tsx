@@ -28,6 +28,8 @@ interface DayForecast {
 interface WeatherData {
   current: CurrentWeather;
   days: DayForecast[];
+  model?: string;
+  source?: string;
 }
 
 export default function WeatherWidget() {
@@ -57,14 +59,23 @@ export default function WeatherWidget() {
     );
   }
 
-  const { current, days } = data;
+  const { current, days, model, source } = data;
 
   return (
     <div className="bg-[#161b27] rounded-2xl border border-white/5 mb-7 overflow-hidden">
       {/* 현재 날씨 */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between border-b border-white/5">
         <div>
-          <p className="text-slate-400 text-xs font-medium mb-2">창원시 현재 날씨</p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-slate-400 text-xs font-medium">창원시 현재 날씨</p>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+              source === "kma"
+                ? "bg-blue-500/20 text-blue-400"
+                : "bg-slate-600/40 text-slate-400"
+            }`}>
+              {model ?? "Open-Meteo (ECMWF)"}
+            </span>
+          </div>
           <div className="flex items-end gap-3">
             <span className="text-4xl leading-none">{current.icon}</span>
             <div>

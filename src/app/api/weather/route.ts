@@ -302,7 +302,12 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ current, days: [...shortDays, ...midDays] });
+    return NextResponse.json({
+      current,
+      days: [...shortDays, ...midDays],
+      model: "기상청 수치예보모델 (UM · GFS)",
+      source: "kma",
+    });
   } catch (e) {
     console.warn("KMA API 실패, Open-Meteo 폴백:", e);
     try {
