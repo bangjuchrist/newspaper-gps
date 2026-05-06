@@ -1,10 +1,5 @@
 import { SolapiMessageService } from "solapi";
 
-const messageService = new SolapiMessageService(
-  process.env.SOLAPI_API_KEY!,
-  process.env.SOLAPI_API_SECRET!
-);
-
 interface ReportNotificationParams {
   to: string;
   distributorName: string;
@@ -34,6 +29,10 @@ export async function sendReportNotification(params: ReportNotificationParams) {
     notes ? `특이사항: ${notes}` : null,
   ].filter(Boolean).join("\n");
 
+  const messageService = new SolapiMessageService(
+    process.env.SOLAPI_API_KEY!,
+    process.env.SOLAPI_API_SECRET!
+  );
   try {
     await messageService.send({
       to,
