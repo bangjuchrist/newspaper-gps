@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+const STORAGE_KEY = "admin_saved_email";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      setEmail(saved);
+      setRemember(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +44,12 @@ export default function AdminLoginPage() {
       await supabase.auth.signOut();
       setLoading(false);
       return;
+    }
+
+    if (remember) {
+      localStorage.setItem(STORAGE_KEY, email);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
     }
 
     router.replace("/admin");
@@ -74,9 +91,18 @@ export default function AdminLoginPage() {
             />
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm text-center">{error}</p>
-          )}
+          {/* 로그인 정보 저장 */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="w-4 h-4 rounded accent-blue-500"
+            />
+            <span className="text-slate-400 text-sm">이메일 저장</span>
+          </label>
+
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
           <button
             type="submit"
