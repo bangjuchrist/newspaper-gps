@@ -160,36 +160,56 @@ export default function ActiveDeliveryClient({
         </div>
       )}
 
-      {/* 카운터 */}
-      <div className="px-4 py-6 grid grid-cols-2 gap-4">
-        <div className="bg-slate-800 rounded-2xl p-4 text-center">
-          <p className="text-slate-400 text-xs mb-1">배포 완료</p>
-          <p className="text-white text-4xl font-bold">{delivered}</p>
-          <p className="text-slate-500 text-xs">부</p>
+      {/* 카운터 — 스테퍼 */}
+      <div className="px-4 py-5 grid grid-cols-2 gap-3">
+        {/* 신문부수 (배포 완료) */}
+        <div className="bg-slate-800 rounded-2xl p-4">
+          <p className="text-slate-400 text-xs text-center mb-3">신문부수</p>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => addEvent(1, "undo")}
+              disabled={!isActive || delivered === 0}
+              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+            >
+              −
+            </button>
+            <p className="text-white text-4xl font-bold tabular-nums flex-1 text-center">{delivered}</p>
+            <button
+              onClick={() => handleDelivery(1)}
+              disabled={!isActive}
+              className="w-12 h-12 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
+          <p className="text-slate-500 text-xs text-center mt-2">부</p>
         </div>
-        <div className="bg-slate-800 rounded-2xl p-4 text-center">
-          <p className="text-slate-400 text-xs mb-1">잔여</p>
-          <p className="text-blue-400 text-4xl font-bold">{remaining}</p>
-          <p className="text-slate-500 text-xs">부</p>
+
+        {/* 잔류부수 */}
+        <div className="bg-slate-800 rounded-2xl p-4">
+          <p className="text-slate-400 text-xs text-center mb-3">잔류부수</p>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setRemaining((r) => Math.max(0, r - 1))}
+              disabled={!isActive || remaining === 0}
+              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+            >
+              −
+            </button>
+            <p className="text-blue-400 text-4xl font-bold tabular-nums flex-1 text-center">{remaining}</p>
+            <button
+              onClick={() => setRemaining((r) => r + 1)}
+              disabled={!isActive}
+              className="w-12 h-12 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
+          <p className="text-slate-500 text-xs text-center mt-2">부</p>
         </div>
       </div>
 
-      {/* 배포 건수 입력 버튼 */}
       <div className="px-4 flex-1 flex flex-col gap-4">
-        <p className="text-slate-400 text-sm">배포 건수 추가</p>
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 5, 10].map((count) => (
-            <button
-              key={count}
-              onClick={() => handleDelivery(count)}
-              disabled={!isActive}
-              className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-8 rounded-2xl text-3xl transition-colors"
-            >
-              +{count}
-            </button>
-          ))}
-        </div>
-
         {/* 되돌리기 */}
         <button
           onClick={handleUndo}
