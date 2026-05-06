@@ -11,6 +11,7 @@ import {
   MapPin,
   TrendingUp,
 } from "lucide-react";
+import WeatherWidget from "@/components/admin/WeatherWidget";
 
 export type RouteRecord = {
   id: string;
@@ -122,6 +123,9 @@ export default function AdminDashboardClient({
           {today}
         </p>
       </div>
+
+      {/* 주간 날씨 */}
+      <WeatherWidget />
 
       {/* KPI 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
