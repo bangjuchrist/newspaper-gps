@@ -163,20 +163,22 @@ CREATE POLICY "events_admin_all" ON distribution_events
 CREATE POLICY "events_distributor_own" ON distribution_events
   USING (route_id IN (SELECT id FROM routes WHERE team_id = my_team_id()));
 
--- reports: 관리자 전체, 배포자 자기 팀만
+-- reports: 관리자 전체, 배포자 본인 reports만
 CREATE POLICY "reports_admin_all"       ON reports USING (is_admin());
-CREATE POLICY "reports_distributor_own" ON reports USING (team_id = (
-  SELECT team_id FROM distributors WHERE auth_user_id = auth.uid()
-));
+CREATE POLICY "reports_distributor_own" ON reports
+  USING (distributor_id IN (
+    SELECT id FROM distributors WHERE auth_user_id = auth.uid()
+  ));
 
 -- report_photos: report를 통해 접근 권한 확인
 CREATE POLICY "photos_admin_all" ON report_photos
   USING (is_admin());
 CREATE POLICY "photos_distributor_own" ON report_photos
   USING (report_id IN (
-    SELECT r.id FROM reports r
-    JOIN distributors d ON d.auth_user_id = auth.uid()
-    WHERE r.team_id = d.team_id
+    SELECT id FROM reports
+    WHERE distributor_id IN (
+      SELECT id FROM distributors WHERE auth_user_id = auth.uid()
+    )
   ));
 
 -- ============================================================
