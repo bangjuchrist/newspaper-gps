@@ -179,52 +179,73 @@ export default function ActiveDeliveryClient({
         </div>
       )}
 
-      {/* 카운터 — 스테퍼 */}
+      {/* 카운터 */}
       <div className="px-4 py-4 flex flex-col gap-3">
-        {/* 신문부수 (배포 완료) */}
-        <div className="bg-slate-800 rounded-2xl px-3 py-5 flex flex-col items-center gap-3">
+        {/* 신문부수 */}
+        <div className="bg-slate-800 rounded-2xl px-4 py-5 flex flex-col items-center gap-4">
           <p className="text-slate-400 text-xs">신문부수</p>
-          <div className="flex items-center justify-between w-full gap-2">
+          <p className="text-white text-7xl font-bold tabular-nums leading-none">{delivered}</p>
+          <p className="text-slate-500 text-xs">부</p>
+          {/* 빠른 입력: 1~4 한 번에, 5부터는 +1 반복 */}
+          <div className="flex gap-2 w-full">
+            {([1, 2, 3, 4] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => addEvent(n, "delivered")}
+                disabled={!isActive}
+                className="flex-1 h-14 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors"
+              >
+                {n}
+              </button>
+            ))}
             <button
-              onClick={() => addEvent(1, "undo")}
-              disabled={!isActive || delivered === 0}
-              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
-            >
-              −
-            </button>
-            <p className="text-white text-6xl font-bold tabular-nums leading-none">{delivered}</p>
-            <button
-              onClick={() => handleDelivery(1)}
+              onClick={() => addEvent(1, "delivered")}
               disabled={!isActive}
-              className="flex-shrink-0 w-16 h-16 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
+              className="flex-1 h-14 bg-slate-600 hover:bg-slate-500 active:bg-slate-700 disabled:opacity-30 text-white text-base font-bold rounded-xl transition-colors"
             >
-              +
+              +1
             </button>
           </div>
-          <p className="text-slate-500 text-xs">부</p>
+          <button
+            onClick={() => addEvent(1, "undo")}
+            disabled={!isActive || delivered === 0}
+            className="text-slate-500 text-xs disabled:opacity-30 active:text-slate-300 py-1"
+          >
+            −1 되돌리기
+          </button>
         </div>
 
         {/* 잔류부수 */}
-        <div className="bg-slate-800 rounded-2xl px-3 py-5 flex flex-col items-center gap-3">
+        <div className="bg-slate-800 rounded-2xl px-4 py-5 flex flex-col items-center gap-4">
           <p className="text-slate-400 text-xs">잔류부수</p>
-          <div className="flex items-center justify-between w-full gap-2">
-            <button
-              onClick={() => setRemaining((r) => Math.max(0, r - 1))}
-              disabled={!isActive || remaining === 0}
-              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
-            >
-              −
-            </button>
-            <p className="text-blue-400 text-6xl font-bold tabular-nums leading-none">{remaining}</p>
+          <p className="text-blue-400 text-7xl font-bold tabular-nums leading-none">{remaining}</p>
+          <p className="text-slate-500 text-xs">부</p>
+          <div className="flex gap-2 w-full">
+            {([1, 2, 3, 4] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => setRemaining((r) => r + n)}
+                disabled={!isActive}
+                className="flex-1 h-14 bg-slate-600 hover:bg-slate-500 active:bg-slate-700 disabled:opacity-30 text-white text-2xl font-bold rounded-xl transition-colors"
+              >
+                {n}
+              </button>
+            ))}
             <button
               onClick={() => setRemaining((r) => r + 1)}
               disabled={!isActive}
-              className="flex-shrink-0 w-16 h-16 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 disabled:opacity-30 text-white text-4xl font-bold rounded-2xl transition-colors flex items-center justify-center"
+              className="flex-1 h-14 bg-slate-600 hover:bg-slate-500 active:bg-slate-700 disabled:opacity-30 text-white text-base font-bold rounded-xl transition-colors"
             >
-              +
+              +1
             </button>
           </div>
-          <p className="text-slate-500 text-xs">부</p>
+          <button
+            onClick={() => setRemaining((r) => Math.max(0, r - 1))}
+            disabled={!isActive || remaining === 0}
+            className="text-slate-500 text-xs disabled:opacity-30 active:text-slate-300 py-1"
+          >
+            −1 되돌리기
+          </button>
         </div>
       </div>
 
