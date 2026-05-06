@@ -237,6 +237,29 @@ export interface Database {
         };
         Relationships: [];
       };
+      otp_codes: {
+        Row: {
+          phone: string;
+          code: string;
+          expires_at: string;
+          attempts: number;
+          created_at: string;
+        };
+        Insert: {
+          phone: string;
+          code: string;
+          expires_at: string;
+          attempts?: number;
+          created_at?: string;
+        };
+        Update: {
+          phone?: string;
+          code?: string;
+          expires_at?: string;
+          attempts?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
