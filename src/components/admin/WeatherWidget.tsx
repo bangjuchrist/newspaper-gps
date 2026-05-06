@@ -73,7 +73,7 @@ export default function WeatherWidget() {
       try {
         const url =
           "https://api.open-meteo.com/v1/forecast" +
-          "?latitude=37.5665&longitude=126.978" +
+          "?latitude=35.2279&longitude=128.6811" +
           "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m" +
           "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max" +
           "&timezone=Asia%2FSeoul&forecast_days=7";
@@ -132,7 +132,7 @@ export default function WeatherWidget() {
       {/* 현재 날씨 요약 */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between border-b border-white/5">
         <div>
-          <p className="text-slate-400 text-xs font-medium mb-1">서울 현재 날씨</p>
+          <p className="text-slate-400 text-xs font-medium mb-1">창원시 현재 날씨</p>
           <div className="flex items-end gap-3">
             <span className="text-4xl leading-none">{icon(current.code)}</span>
             <div>
