@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import "leaflet/dist/leaflet.css";
 
 interface Marker {
   lat: number;
@@ -23,35 +24,6 @@ interface KakaoMapProps {
   onMapClick?: (lat: number, lng: number) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type NaverMaps = any;
-
-declare global {
-  interface Window {
-    naver: { maps: NaverMaps };
-  }
-}
-
-let _scriptPromise: Promise<void> | null = null;
-
-function loadNaverScript(clientId: string): Promise<void> {
-  if (window.naver?.maps) return Promise.resolve();
-  if (!_scriptPromise) {
-    _scriptPromise = new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`;
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => {
-        _scriptPromise = null;
-        reject(new Error("Naver Maps 스크립트 로드 실패"));
-      };
-      document.head.appendChild(script);
-    });
-  }
-  return _scriptPromise;
-}
-
 export default function KakaoMap({
   center = { lat: 35.2279, lng: 128.6811 },
   markers = [],
@@ -67,112 +39,103 @@ export default function KakaoMap({
   const markersRef = useRef<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const polylinesRef = useRef<any[]>([]);
-  const [loadError, setLoadError] = useState(false);
+  const [, setReady] = useState(false);
 
+  // 지도 초기화
   useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_KEY;
-    if (!clientId || !containerRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
 
-    let cancelled = false;
+    import("leaflet").then((L) => {
+      if (!containerRef.current || mapRef.current) return;
 
-    loadNaverScript(clientId).then(() => {
-      if (cancelled || !containerRef.current) return;
-      const { maps } = window.naver;
+      // 기본 마커 아이콘 경로 수정 (Next.js 환경)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+      });
 
-      const init = () => {
-        if (cancelled || !containerRef.current) return;
-        const map = new maps.Map(containerRef.current, {
-          center: new maps.LatLng(center.lat, center.lng),
-          zoom,
+      const map = L.map(containerRef.current, {
+        center: [center.lat, center.lng],
+        zoom,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      if (onMapClick) {
+        map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+          onMapClick(e.latlng.lat, e.latlng.lng);
         });
-        mapRef.current = map;
-        if (onMapClick) {
-          maps.Event.addListener(map, "click", (e: { coord: { lat(): number; lng(): number } }) => {
-            onMapClick(e.coord.lat(), e.coord.lng());
-          });
-        }
-      };
+      }
 
-      if (containerRef.current.offsetWidth === 0 || containerRef.current.offsetHeight === 0) {
-        requestAnimationFrame(init);
-      } else {
-        init();
-      }
-    }).catch((err: unknown) => {
-      if (!cancelled) {
-        console.error("NaverMap:", err instanceof Error ? err.message : err);
-        setLoadError(true);
-      }
+      mapRef.current = map;
+      setReady(true);
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 마커 업데이트
   useEffect(() => {
-    if (!mapRef.current || !window.naver?.maps) return;
-    const { maps } = window.naver;
-
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = markers.map((m) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const opts: Record<string, any> = {
-        position: new maps.LatLng(m.lat, m.lng),
-        map: mapRef.current,
-        title: m.label,
-      };
-      if (m.color) {
-        const svg = encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="8" fill="${m.color}" stroke="white" stroke-width="2.5"/></svg>`
-        );
-        opts.icon = {
-          url: `data:image/svg+xml;charset=UTF-8,${svg}`,
-          size: new maps.Size(22, 22),
-          anchor: new maps.Point(11, 11),
-        };
-      }
-      return new maps.Marker(opts);
-    });
-  }, [markers]);
-
-  useEffect(() => {
-    if (!mapRef.current || !window.naver?.maps) return;
-    const { maps } = window.naver;
-
-    polylinesRef.current.forEach((p) => p.setMap(null));
-    polylinesRef.current = polylines.map((pl) => {
-      return new maps.Polyline({
-        map: mapRef.current,
-        path: pl.points.map((p) => new maps.LatLng(p.lat, p.lng)),
-        strokeColor: pl.color ?? "#3b82f6",
-        strokeWeight: 3,
-        strokeOpacity: 0.8,
-        strokeStyle: "solid",
+    if (!mapRef.current) return;
+    import("leaflet").then((L) => {
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = markers.map((m) => {
+        const icon = L.divIcon({
+          html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"><circle cx="11" cy="11" r="8" fill="${m.color ?? "#3b82f6"}" stroke="white" stroke-width="2.5"/></svg>`,
+          className: "",
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+        const marker = L.marker([m.lat, m.lng], { icon, title: m.label ?? "" });
+        marker.addTo(mapRef.current);
+        if (m.label) marker.bindTooltip(m.label, { permanent: false });
+        return marker;
       });
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers]);
+
+  // 폴리라인 업데이트
+  useEffect(() => {
+    if (!mapRef.current) return;
+    import("leaflet").then((L) => {
+      polylinesRef.current.forEach((p) => p.remove());
+      polylinesRef.current = polylines.map((pl) => {
+        const line = L.polyline(
+          pl.points.map((p) => [p.lat, p.lng] as [number, number]),
+          { color: pl.color ?? "#3b82f6", weight: 3, opacity: 0.8 }
+        );
+        line.addTo(mapRef.current);
+        return line;
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [polylines]);
 
+  // 중심 이동
   useEffect(() => {
-    if (!mapRef.current || !window.naver?.maps) return;
-    mapRef.current.setCenter(new window.naver.maps.LatLng(center.lat, center.lng));
+    if (!mapRef.current) return;
+    mapRef.current.setView([center.lat, center.lng]);
   }, [center.lat, center.lng]);
-
-  if (loadError) {
-    return (
-      <div className={`${className} bg-slate-800 flex items-center justify-center`}>
-        <p className="text-slate-500 text-sm text-center px-4">
-          지도를 불러올 수 없습니다<br />
-          <span className="text-xs text-slate-600">네이버 클라우드 플랫폼 콘솔에서 도메인을 확인해주세요</span>
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "none", zIndex: 0 }}
     />
   );
 }
